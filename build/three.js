@@ -7009,6 +7009,324 @@
 		return Triangle;
 	}();
 
+	var materialId = 0;
+
+	function Material() {
+		Object.defineProperty(this, 'id', {
+			value: materialId++
+		});
+		this.uuid = MathUtils.generateUUID();
+		this.name = '';
+		this.type = 'Material';
+		this.fog = true;
+		this.blending = NormalBlending;
+		this.side = FrontSide;
+		this.flatShading = false;
+		this.vertexColors = false;
+		this.opacity = 1;
+		this.transparent = false;
+		this.blendSrc = SrcAlphaFactor;
+		this.blendDst = OneMinusSrcAlphaFactor;
+		this.blendEquation = AddEquation;
+		this.blendSrcAlpha = null;
+		this.blendDstAlpha = null;
+		this.blendEquationAlpha = null;
+		this.depthFunc = LessEqualDepth;
+		this.depthTest = true;
+		this.depthWrite = true;
+		this.stencilWriteMask = 0xff;
+		this.stencilFunc = AlwaysStencilFunc;
+		this.stencilRef = 0;
+		this.stencilFuncMask = 0xff;
+		this.stencilFail = KeepStencilOp;
+		this.stencilZFail = KeepStencilOp;
+		this.stencilZPass = KeepStencilOp;
+		this.stencilWrite = false;
+		this.clippingPlanes = null;
+		this.clipIntersection = false;
+		this.clipShadows = false;
+		this.shadowSide = null;
+		this.colorWrite = true;
+		this.precision = null; // override the renderer's default precision for this material
+
+		this.polygonOffset = false;
+		this.polygonOffsetFactor = 0;
+		this.polygonOffsetUnits = 0;
+		this.dithering = false;
+		this.alphaTest = 0;
+		this.premultipliedAlpha = false;
+		this.visible = true;
+		this.toneMapped = true;
+		this.userData = {};
+		this.version = 0;
+	}
+
+	Material.prototype = Object.assign(Object.create(EventDispatcher.prototype), {
+		constructor: Material,
+		isMaterial: true,
+		onBeforeCompile: function onBeforeCompile()
+		/* shaderobject, renderer */
+		{},
+		customProgramCacheKey: function customProgramCacheKey() {
+			return this.onBeforeCompile.toString();
+		},
+		setValues: function setValues(values) {
+			if (values === undefined) return;
+
+			for (var key in values) {
+				var newValue = values[key];
+
+				if (newValue === undefined) {
+					console.warn('THREE.Material: \'' + key + '\' parameter is undefined.');
+					continue;
+				} // for backward compatability if shading is set in the constructor
+
+
+				if (key === 'shading') {
+					console.warn('THREE.' + this.type + ': .shading has been removed. Use the boolean .flatShading instead.');
+					this.flatShading = newValue === FlatShading ? true : false;
+					continue;
+				}
+
+				var currentValue = this[key];
+
+				if (currentValue === undefined) {
+					console.warn('THREE.' + this.type + ': \'' + key + '\' is not a property of this material.');
+					continue;
+				}
+
+				if (currentValue && currentValue.isColor) {
+					currentValue.set(newValue);
+				} else if (currentValue && currentValue.isVector3 && newValue && newValue.isVector3) {
+					currentValue.copy(newValue);
+				} else {
+					this[key] = newValue;
+				}
+			}
+		},
+		toJSON: function toJSON(meta) {
+			var isRoot = meta === undefined || typeof meta === 'string';
+
+			if (isRoot) {
+				meta = {
+					textures: {},
+					images: {}
+				};
+			}
+
+			var data = {
+				metadata: {
+					version: 4.5,
+					type: 'Material',
+					generator: 'Material.toJSON'
+				}
+			}; // standard Material serialization
+
+			data.uuid = this.uuid;
+			data.type = this.type;
+			if (this.name !== '') data.name = this.name;
+			if (this.color && this.color.isColor) data.color = this.color.getHex();
+			if (this.roughness !== undefined) data.roughness = this.roughness;
+			if (this.metalness !== undefined) data.metalness = this.metalness;
+			if (this.sheen && this.sheen.isColor) data.sheen = this.sheen.getHex();
+			if (this.emissive && this.emissive.isColor) data.emissive = this.emissive.getHex();
+			if (this.emissiveIntensity && this.emissiveIntensity !== 1) data.emissiveIntensity = this.emissiveIntensity;
+			if (this.specular && this.specular.isColor) data.specular = this.specular.getHex();
+			if (this.shininess !== undefined) data.shininess = this.shininess;
+			if (this.clearcoat !== undefined) data.clearcoat = this.clearcoat;
+			if (this.clearcoatRoughness !== undefined) data.clearcoatRoughness = this.clearcoatRoughness;
+
+			if (this.clearcoatMap && this.clearcoatMap.isTexture) {
+				data.clearcoatMap = this.clearcoatMap.toJSON(meta).uuid;
+			}
+
+			if (this.clearcoatRoughnessMap && this.clearcoatRoughnessMap.isTexture) {
+				data.clearcoatRoughnessMap = this.clearcoatRoughnessMap.toJSON(meta).uuid;
+			}
+
+			if (this.clearcoatNormalMap && this.clearcoatNormalMap.isTexture) {
+				data.clearcoatNormalMap = this.clearcoatNormalMap.toJSON(meta).uuid;
+				data.clearcoatNormalScale = this.clearcoatNormalScale.toArray();
+			}
+
+			if (this.map && this.map.isTexture) data.map = this.map.toJSON(meta).uuid;
+			if (this.matcap && this.matcap.isTexture) data.matcap = this.matcap.toJSON(meta).uuid;
+			if (this.alphaMap && this.alphaMap.isTexture) data.alphaMap = this.alphaMap.toJSON(meta).uuid;
+			if (this.lightMap && this.lightMap.isTexture) data.lightMap = this.lightMap.toJSON(meta).uuid;
+
+			if (this.aoMap && this.aoMap.isTexture) {
+				data.aoMap = this.aoMap.toJSON(meta).uuid;
+				data.aoMapIntensity = this.aoMapIntensity;
+			}
+
+			if (this.bumpMap && this.bumpMap.isTexture) {
+				data.bumpMap = this.bumpMap.toJSON(meta).uuid;
+				data.bumpScale = this.bumpScale;
+			}
+
+			if (this.normalMap && this.normalMap.isTexture) {
+				data.normalMap = this.normalMap.toJSON(meta).uuid;
+				data.normalMapType = this.normalMapType;
+				data.normalScale = this.normalScale.toArray();
+			}
+
+			if (this.displacementMap && this.displacementMap.isTexture) {
+				data.displacementMap = this.displacementMap.toJSON(meta).uuid;
+				data.displacementScale = this.displacementScale;
+				data.displacementBias = this.displacementBias;
+			}
+
+			if (this.roughnessMap && this.roughnessMap.isTexture) data.roughnessMap = this.roughnessMap.toJSON(meta).uuid;
+			if (this.metalnessMap && this.metalnessMap.isTexture) data.metalnessMap = this.metalnessMap.toJSON(meta).uuid;
+			if (this.emissiveMap && this.emissiveMap.isTexture) data.emissiveMap = this.emissiveMap.toJSON(meta).uuid;
+			if (this.specularMap && this.specularMap.isTexture) data.specularMap = this.specularMap.toJSON(meta).uuid;
+
+			if (this.envMap && this.envMap.isTexture) {
+				data.envMap = this.envMap.toJSON(meta).uuid;
+				data.reflectivity = this.reflectivity; // Scale behind envMap
+
+				data.refractionRatio = this.refractionRatio;
+				if (this.combine !== undefined) data.combine = this.combine;
+				if (this.envMapIntensity !== undefined) data.envMapIntensity = this.envMapIntensity;
+			}
+
+			if (this.gradientMap && this.gradientMap.isTexture) {
+				data.gradientMap = this.gradientMap.toJSON(meta).uuid;
+			}
+
+			if (this.size !== undefined) data.size = this.size;
+			if (this.sizeAttenuation !== undefined) data.sizeAttenuation = this.sizeAttenuation;
+			if (this.blending !== NormalBlending) data.blending = this.blending;
+			if (this.flatShading === true) data.flatShading = this.flatShading;
+			if (this.side !== FrontSide) data.side = this.side;
+			if (this.vertexColors) data.vertexColors = true;
+			if (this.opacity < 1) data.opacity = this.opacity;
+			if (this.transparent === true) data.transparent = this.transparent;
+			data.depthFunc = this.depthFunc;
+			data.depthTest = this.depthTest;
+			data.depthWrite = this.depthWrite;
+			data.stencilWrite = this.stencilWrite;
+			data.stencilWriteMask = this.stencilWriteMask;
+			data.stencilFunc = this.stencilFunc;
+			data.stencilRef = this.stencilRef;
+			data.stencilFuncMask = this.stencilFuncMask;
+			data.stencilFail = this.stencilFail;
+			data.stencilZFail = this.stencilZFail;
+			data.stencilZPass = this.stencilZPass; // rotation (SpriteMaterial)
+
+			if (this.rotation && this.rotation !== 0) data.rotation = this.rotation;
+			if (this.polygonOffset === true) data.polygonOffset = true;
+			if (this.polygonOffsetFactor !== 0) data.polygonOffsetFactor = this.polygonOffsetFactor;
+			if (this.polygonOffsetUnits !== 0) data.polygonOffsetUnits = this.polygonOffsetUnits;
+			if (this.linewidth && this.linewidth !== 1) data.linewidth = this.linewidth;
+			if (this.dashSize !== undefined) data.dashSize = this.dashSize;
+			if (this.gapSize !== undefined) data.gapSize = this.gapSize;
+			if (this.scale !== undefined) data.scale = this.scale;
+			if (this.dithering === true) data.dithering = true;
+			if (this.alphaTest > 0) data.alphaTest = this.alphaTest;
+			if (this.premultipliedAlpha === true) data.premultipliedAlpha = this.premultipliedAlpha;
+			if (this.wireframe === true) data.wireframe = this.wireframe;
+			if (this.wireframeLinewidth > 1) data.wireframeLinewidth = this.wireframeLinewidth;
+			if (this.wireframeLinecap !== 'round') data.wireframeLinecap = this.wireframeLinecap;
+			if (this.wireframeLinejoin !== 'round') data.wireframeLinejoin = this.wireframeLinejoin;
+			if (this.morphTargets === true) data.morphTargets = true;
+			if (this.morphNormals === true) data.morphNormals = true;
+			if (this.skinning === true) data.skinning = true;
+			if (this.visible === false) data.visible = false;
+			if (this.toneMapped === false) data.toneMapped = false;
+			if (JSON.stringify(this.userData) !== '{}') data.userData = this.userData; // TODO: Copied from Object3D.toJSON
+
+			function extractFromCache(cache) {
+				var values = [];
+
+				for (var key in cache) {
+					var _data = cache[key];
+					delete _data.metadata;
+					values.push(_data);
+				}
+
+				return values;
+			}
+
+			if (isRoot) {
+				var textures = extractFromCache(meta.textures);
+				var images = extractFromCache(meta.images);
+				if (textures.length > 0) data.textures = textures;
+				if (images.length > 0) data.images = images;
+			}
+
+			return data;
+		},
+		clone: function clone() {
+			return new this.constructor().copy(this);
+		},
+		copy: function copy(source) {
+			this.name = source.name;
+			this.fog = source.fog;
+			this.blending = source.blending;
+			this.side = source.side;
+			this.flatShading = source.flatShading;
+			this.vertexColors = source.vertexColors;
+			this.opacity = source.opacity;
+			this.transparent = source.transparent;
+			this.blendSrc = source.blendSrc;
+			this.blendDst = source.blendDst;
+			this.blendEquation = source.blendEquation;
+			this.blendSrcAlpha = source.blendSrcAlpha;
+			this.blendDstAlpha = source.blendDstAlpha;
+			this.blendEquationAlpha = source.blendEquationAlpha;
+			this.depthFunc = source.depthFunc;
+			this.depthTest = source.depthTest;
+			this.depthWrite = source.depthWrite;
+			this.stencilWriteMask = source.stencilWriteMask;
+			this.stencilFunc = source.stencilFunc;
+			this.stencilRef = source.stencilRef;
+			this.stencilFuncMask = source.stencilFuncMask;
+			this.stencilFail = source.stencilFail;
+			this.stencilZFail = source.stencilZFail;
+			this.stencilZPass = source.stencilZPass;
+			this.stencilWrite = source.stencilWrite;
+			var srcPlanes = source.clippingPlanes;
+			var dstPlanes = null;
+
+			if (srcPlanes !== null) {
+				var n = srcPlanes.length;
+				dstPlanes = new Array(n);
+
+				for (var i = 0; i !== n; ++i) {
+					dstPlanes[i] = srcPlanes[i].clone();
+				}
+			}
+
+			this.clippingPlanes = dstPlanes;
+			this.clipIntersection = source.clipIntersection;
+			this.clipShadows = source.clipShadows;
+			this.shadowSide = source.shadowSide;
+			this.colorWrite = source.colorWrite;
+			this.precision = source.precision;
+			this.polygonOffset = source.polygonOffset;
+			this.polygonOffsetFactor = source.polygonOffsetFactor;
+			this.polygonOffsetUnits = source.polygonOffsetUnits;
+			this.dithering = source.dithering;
+			this.alphaTest = source.alphaTest;
+			this.premultipliedAlpha = source.premultipliedAlpha;
+			this.visible = source.visible;
+			this.toneMapped = source.toneMapped;
+			this.userData = JSON.parse(JSON.stringify(source.userData));
+			return this;
+		},
+		dispose: function dispose() {
+			this.dispatchEvent({
+				type: 'dispose'
+			});
+		}
+	});
+	Object.defineProperty(Material.prototype, 'needsUpdate', {
+		set: function set(value) {
+			if (value === true) this.version++;
+		}
+	});
+
 	var _colorKeywords = {
 		'aliceblue': 0xF0F8FF,
 		'antiquewhite': 0xFAEBD7,
@@ -7611,368 +7929,6 @@
 	Color.prototype.r = 1;
 	Color.prototype.g = 1;
 	Color.prototype.b = 1;
-
-	var Face3 = /*#__PURE__*/function () {
-		function Face3(a, b, c, normal, color, materialIndex) {
-			if (materialIndex === void 0) {
-				materialIndex = 0;
-			}
-
-			this.a = a;
-			this.b = b;
-			this.c = c;
-			this.normal = normal && normal.isVector3 ? normal : new Vector3();
-			this.vertexNormals = Array.isArray(normal) ? normal : [];
-			this.color = color && color.isColor ? color : new Color();
-			this.vertexColors = Array.isArray(color) ? color : [];
-			this.materialIndex = materialIndex;
-		}
-
-		var _proto = Face3.prototype;
-
-		_proto.clone = function clone() {
-			return new this.constructor().copy(this);
-		};
-
-		_proto.copy = function copy(source) {
-			this.a = source.a;
-			this.b = source.b;
-			this.c = source.c;
-			this.normal.copy(source.normal);
-			this.color.copy(source.color);
-			this.materialIndex = source.materialIndex;
-
-			for (var i = 0, il = source.vertexNormals.length; i < il; i++) {
-				this.vertexNormals[i] = source.vertexNormals[i].clone();
-			}
-
-			for (var _i = 0, _il = source.vertexColors.length; _i < _il; _i++) {
-				this.vertexColors[_i] = source.vertexColors[_i].clone();
-			}
-
-			return this;
-		};
-
-		return Face3;
-	}();
-
-	var materialId = 0;
-
-	function Material() {
-		Object.defineProperty(this, 'id', {
-			value: materialId++
-		});
-		this.uuid = MathUtils.generateUUID();
-		this.name = '';
-		this.type = 'Material';
-		this.fog = true;
-		this.blending = NormalBlending;
-		this.side = FrontSide;
-		this.flatShading = false;
-		this.vertexColors = false;
-		this.opacity = 1;
-		this.transparent = false;
-		this.blendSrc = SrcAlphaFactor;
-		this.blendDst = OneMinusSrcAlphaFactor;
-		this.blendEquation = AddEquation;
-		this.blendSrcAlpha = null;
-		this.blendDstAlpha = null;
-		this.blendEquationAlpha = null;
-		this.depthFunc = LessEqualDepth;
-		this.depthTest = true;
-		this.depthWrite = true;
-		this.stencilWriteMask = 0xff;
-		this.stencilFunc = AlwaysStencilFunc;
-		this.stencilRef = 0;
-		this.stencilFuncMask = 0xff;
-		this.stencilFail = KeepStencilOp;
-		this.stencilZFail = KeepStencilOp;
-		this.stencilZPass = KeepStencilOp;
-		this.stencilWrite = false;
-		this.clippingPlanes = null;
-		this.clipIntersection = false;
-		this.clipShadows = false;
-		this.shadowSide = null;
-		this.colorWrite = true;
-		this.precision = null; // override the renderer's default precision for this material
-
-		this.polygonOffset = false;
-		this.polygonOffsetFactor = 0;
-		this.polygonOffsetUnits = 0;
-		this.dithering = false;
-		this.alphaTest = 0;
-		this.premultipliedAlpha = false;
-		this.visible = true;
-		this.toneMapped = true;
-		this.userData = {};
-		this.version = 0;
-	}
-
-	Material.prototype = Object.assign(Object.create(EventDispatcher.prototype), {
-		constructor: Material,
-		isMaterial: true,
-		onBeforeCompile: function onBeforeCompile()
-		/* shaderobject, renderer */
-		{},
-		customProgramCacheKey: function customProgramCacheKey() {
-			return this.onBeforeCompile.toString();
-		},
-		setValues: function setValues(values) {
-			if (values === undefined) return;
-
-			for (var key in values) {
-				var newValue = values[key];
-
-				if (newValue === undefined) {
-					console.warn('THREE.Material: \'' + key + '\' parameter is undefined.');
-					continue;
-				} // for backward compatability if shading is set in the constructor
-
-
-				if (key === 'shading') {
-					console.warn('THREE.' + this.type + ': .shading has been removed. Use the boolean .flatShading instead.');
-					this.flatShading = newValue === FlatShading ? true : false;
-					continue;
-				}
-
-				var currentValue = this[key];
-
-				if (currentValue === undefined) {
-					console.warn('THREE.' + this.type + ': \'' + key + '\' is not a property of this material.');
-					continue;
-				}
-
-				if (currentValue && currentValue.isColor) {
-					currentValue.set(newValue);
-				} else if (currentValue && currentValue.isVector3 && newValue && newValue.isVector3) {
-					currentValue.copy(newValue);
-				} else {
-					this[key] = newValue;
-				}
-			}
-		},
-		toJSON: function toJSON(meta) {
-			var isRoot = meta === undefined || typeof meta === 'string';
-
-			if (isRoot) {
-				meta = {
-					textures: {},
-					images: {}
-				};
-			}
-
-			var data = {
-				metadata: {
-					version: 4.5,
-					type: 'Material',
-					generator: 'Material.toJSON'
-				}
-			}; // standard Material serialization
-
-			data.uuid = this.uuid;
-			data.type = this.type;
-			if (this.name !== '') data.name = this.name;
-			if (this.color && this.color.isColor) data.color = this.color.getHex();
-			if (this.roughness !== undefined) data.roughness = this.roughness;
-			if (this.metalness !== undefined) data.metalness = this.metalness;
-			if (this.sheen && this.sheen.isColor) data.sheen = this.sheen.getHex();
-			if (this.emissive && this.emissive.isColor) data.emissive = this.emissive.getHex();
-			if (this.emissiveIntensity && this.emissiveIntensity !== 1) data.emissiveIntensity = this.emissiveIntensity;
-			if (this.specular && this.specular.isColor) data.specular = this.specular.getHex();
-			if (this.shininess !== undefined) data.shininess = this.shininess;
-			if (this.clearcoat !== undefined) data.clearcoat = this.clearcoat;
-			if (this.clearcoatRoughness !== undefined) data.clearcoatRoughness = this.clearcoatRoughness;
-
-			if (this.clearcoatMap && this.clearcoatMap.isTexture) {
-				data.clearcoatMap = this.clearcoatMap.toJSON(meta).uuid;
-			}
-
-			if (this.clearcoatRoughnessMap && this.clearcoatRoughnessMap.isTexture) {
-				data.clearcoatRoughnessMap = this.clearcoatRoughnessMap.toJSON(meta).uuid;
-			}
-
-			if (this.clearcoatNormalMap && this.clearcoatNormalMap.isTexture) {
-				data.clearcoatNormalMap = this.clearcoatNormalMap.toJSON(meta).uuid;
-				data.clearcoatNormalScale = this.clearcoatNormalScale.toArray();
-			}
-
-			if (this.map && this.map.isTexture) data.map = this.map.toJSON(meta).uuid;
-			if (this.matcap && this.matcap.isTexture) data.matcap = this.matcap.toJSON(meta).uuid;
-			if (this.alphaMap && this.alphaMap.isTexture) data.alphaMap = this.alphaMap.toJSON(meta).uuid;
-			if (this.lightMap && this.lightMap.isTexture) data.lightMap = this.lightMap.toJSON(meta).uuid;
-
-			if (this.aoMap && this.aoMap.isTexture) {
-				data.aoMap = this.aoMap.toJSON(meta).uuid;
-				data.aoMapIntensity = this.aoMapIntensity;
-			}
-
-			if (this.bumpMap && this.bumpMap.isTexture) {
-				data.bumpMap = this.bumpMap.toJSON(meta).uuid;
-				data.bumpScale = this.bumpScale;
-			}
-
-			if (this.normalMap && this.normalMap.isTexture) {
-				data.normalMap = this.normalMap.toJSON(meta).uuid;
-				data.normalMapType = this.normalMapType;
-				data.normalScale = this.normalScale.toArray();
-			}
-
-			if (this.displacementMap && this.displacementMap.isTexture) {
-				data.displacementMap = this.displacementMap.toJSON(meta).uuid;
-				data.displacementScale = this.displacementScale;
-				data.displacementBias = this.displacementBias;
-			}
-
-			if (this.roughnessMap && this.roughnessMap.isTexture) data.roughnessMap = this.roughnessMap.toJSON(meta).uuid;
-			if (this.metalnessMap && this.metalnessMap.isTexture) data.metalnessMap = this.metalnessMap.toJSON(meta).uuid;
-			if (this.emissiveMap && this.emissiveMap.isTexture) data.emissiveMap = this.emissiveMap.toJSON(meta).uuid;
-			if (this.specularMap && this.specularMap.isTexture) data.specularMap = this.specularMap.toJSON(meta).uuid;
-
-			if (this.envMap && this.envMap.isTexture) {
-				data.envMap = this.envMap.toJSON(meta).uuid;
-				data.reflectivity = this.reflectivity; // Scale behind envMap
-
-				data.refractionRatio = this.refractionRatio;
-				if (this.combine !== undefined) data.combine = this.combine;
-				if (this.envMapIntensity !== undefined) data.envMapIntensity = this.envMapIntensity;
-			}
-
-			if (this.gradientMap && this.gradientMap.isTexture) {
-				data.gradientMap = this.gradientMap.toJSON(meta).uuid;
-			}
-
-			if (this.size !== undefined) data.size = this.size;
-			if (this.sizeAttenuation !== undefined) data.sizeAttenuation = this.sizeAttenuation;
-			if (this.blending !== NormalBlending) data.blending = this.blending;
-			if (this.flatShading === true) data.flatShading = this.flatShading;
-			if (this.side !== FrontSide) data.side = this.side;
-			if (this.vertexColors) data.vertexColors = true;
-			if (this.opacity < 1) data.opacity = this.opacity;
-			if (this.transparent === true) data.transparent = this.transparent;
-			data.depthFunc = this.depthFunc;
-			data.depthTest = this.depthTest;
-			data.depthWrite = this.depthWrite;
-			data.stencilWrite = this.stencilWrite;
-			data.stencilWriteMask = this.stencilWriteMask;
-			data.stencilFunc = this.stencilFunc;
-			data.stencilRef = this.stencilRef;
-			data.stencilFuncMask = this.stencilFuncMask;
-			data.stencilFail = this.stencilFail;
-			data.stencilZFail = this.stencilZFail;
-			data.stencilZPass = this.stencilZPass; // rotation (SpriteMaterial)
-
-			if (this.rotation && this.rotation !== 0) data.rotation = this.rotation;
-			if (this.polygonOffset === true) data.polygonOffset = true;
-			if (this.polygonOffsetFactor !== 0) data.polygonOffsetFactor = this.polygonOffsetFactor;
-			if (this.polygonOffsetUnits !== 0) data.polygonOffsetUnits = this.polygonOffsetUnits;
-			if (this.linewidth && this.linewidth !== 1) data.linewidth = this.linewidth;
-			if (this.dashSize !== undefined) data.dashSize = this.dashSize;
-			if (this.gapSize !== undefined) data.gapSize = this.gapSize;
-			if (this.scale !== undefined) data.scale = this.scale;
-			if (this.dithering === true) data.dithering = true;
-			if (this.alphaTest > 0) data.alphaTest = this.alphaTest;
-			if (this.premultipliedAlpha === true) data.premultipliedAlpha = this.premultipliedAlpha;
-			if (this.wireframe === true) data.wireframe = this.wireframe;
-			if (this.wireframeLinewidth > 1) data.wireframeLinewidth = this.wireframeLinewidth;
-			if (this.wireframeLinecap !== 'round') data.wireframeLinecap = this.wireframeLinecap;
-			if (this.wireframeLinejoin !== 'round') data.wireframeLinejoin = this.wireframeLinejoin;
-			if (this.morphTargets === true) data.morphTargets = true;
-			if (this.morphNormals === true) data.morphNormals = true;
-			if (this.skinning === true) data.skinning = true;
-			if (this.visible === false) data.visible = false;
-			if (this.toneMapped === false) data.toneMapped = false;
-			if (JSON.stringify(this.userData) !== '{}') data.userData = this.userData; // TODO: Copied from Object3D.toJSON
-
-			function extractFromCache(cache) {
-				var values = [];
-
-				for (var key in cache) {
-					var _data = cache[key];
-					delete _data.metadata;
-					values.push(_data);
-				}
-
-				return values;
-			}
-
-			if (isRoot) {
-				var textures = extractFromCache(meta.textures);
-				var images = extractFromCache(meta.images);
-				if (textures.length > 0) data.textures = textures;
-				if (images.length > 0) data.images = images;
-			}
-
-			return data;
-		},
-		clone: function clone() {
-			return new this.constructor().copy(this);
-		},
-		copy: function copy(source) {
-			this.name = source.name;
-			this.fog = source.fog;
-			this.blending = source.blending;
-			this.side = source.side;
-			this.flatShading = source.flatShading;
-			this.vertexColors = source.vertexColors;
-			this.opacity = source.opacity;
-			this.transparent = source.transparent;
-			this.blendSrc = source.blendSrc;
-			this.blendDst = source.blendDst;
-			this.blendEquation = source.blendEquation;
-			this.blendSrcAlpha = source.blendSrcAlpha;
-			this.blendDstAlpha = source.blendDstAlpha;
-			this.blendEquationAlpha = source.blendEquationAlpha;
-			this.depthFunc = source.depthFunc;
-			this.depthTest = source.depthTest;
-			this.depthWrite = source.depthWrite;
-			this.stencilWriteMask = source.stencilWriteMask;
-			this.stencilFunc = source.stencilFunc;
-			this.stencilRef = source.stencilRef;
-			this.stencilFuncMask = source.stencilFuncMask;
-			this.stencilFail = source.stencilFail;
-			this.stencilZFail = source.stencilZFail;
-			this.stencilZPass = source.stencilZPass;
-			this.stencilWrite = source.stencilWrite;
-			var srcPlanes = source.clippingPlanes;
-			var dstPlanes = null;
-
-			if (srcPlanes !== null) {
-				var n = srcPlanes.length;
-				dstPlanes = new Array(n);
-
-				for (var i = 0; i !== n; ++i) {
-					dstPlanes[i] = srcPlanes[i].clone();
-				}
-			}
-
-			this.clippingPlanes = dstPlanes;
-			this.clipIntersection = source.clipIntersection;
-			this.clipShadows = source.clipShadows;
-			this.shadowSide = source.shadowSide;
-			this.colorWrite = source.colorWrite;
-			this.precision = source.precision;
-			this.polygonOffset = source.polygonOffset;
-			this.polygonOffsetFactor = source.polygonOffsetFactor;
-			this.polygonOffsetUnits = source.polygonOffsetUnits;
-			this.dithering = source.dithering;
-			this.alphaTest = source.alphaTest;
-			this.premultipliedAlpha = source.premultipliedAlpha;
-			this.visible = source.visible;
-			this.toneMapped = source.toneMapped;
-			this.userData = JSON.parse(JSON.stringify(source.userData));
-			return this;
-		},
-		dispose: function dispose() {
-			this.dispatchEvent({
-				type: 'dispose'
-			});
-		}
-	});
-	Object.defineProperty(Material.prototype, 'needsUpdate', {
-		set: function set(value) {
-			if (value === true) this.version++;
-		}
-	});
 
 	/**
 	 * parameters = {
@@ -9106,17 +9062,17 @@
 		clone: function clone() {
 			/*
 			 // Handle primitives
-				 const parameters = this.parameters;
-				 if ( parameters !== undefined ) {
-				 const values = [];
-				 for ( const key in parameters ) {
-				 values.push( parameters[ key ] );
-				 }
-				 const geometry = Object.create( this.constructor.prototype );
+					 const parameters = this.parameters;
+					 if ( parameters !== undefined ) {
+					 const values = [];
+					 for ( const key in parameters ) {
+					 values.push( parameters[ key ] );
+					 }
+					 const geometry = Object.create( this.constructor.prototype );
 			 this.constructor.apply( geometry, values );
 			 return geometry;
-				 }
-				 return new this.constructor().copy( this );
+					 }
+					 return new this.constructor().copy( this );
 			 */
 			return new BufferGeometry().copy(this);
 		},
@@ -9532,7 +9488,13 @@
 				intersection.uv2 = Triangle.getUV(_intersectionPoint, _vA, _vB, _vC, _uvA, _uvB, _uvC, new Vector2());
 			}
 
-			var face = new Face3(a, b, c);
+			var face = {
+				a: a,
+				b: a,
+				c: c,
+				normal: new Vector3(),
+				materialIndex: 0
+			};
 			Triangle.getNormal(_vA, _vB, _vC, face.normal);
 			intersection.face = face;
 		}
@@ -10760,9 +10722,9 @@
 
 	var envmap_physical_pars_fragment = "#if defined( USE_ENVMAP )\n\t#ifdef ENVMAP_MODE_REFRACTION\n\t\tuniform float refractionRatio;\n\t#endif\n\tvec3 getLightProbeIndirectIrradiance( const in GeometricContext geometry, const in int maxMIPLevel ) {\n\t\tvec3 worldNormal = inverseTransformDirection( geometry.normal, viewMatrix );\n\t\t#ifdef ENVMAP_TYPE_CUBE\n\t\t\tvec3 queryVec = vec3( flipEnvMap * worldNormal.x, worldNormal.yz );\n\t\t\t#ifdef TEXTURE_LOD_EXT\n\t\t\t\tvec4 envMapColor = textureCubeLodEXT( envMap, queryVec, float( maxMIPLevel ) );\n\t\t\t#else\n\t\t\t\tvec4 envMapColor = textureCube( envMap, queryVec, float( maxMIPLevel ) );\n\t\t\t#endif\n\t\t\tenvMapColor.rgb = envMapTexelToLinear( envMapColor ).rgb;\n\t\t#elif defined( ENVMAP_TYPE_CUBE_UV )\n\t\t\tvec4 envMapColor = textureCubeUV( envMap, worldNormal, 1.0 );\n\t\t#else\n\t\t\tvec4 envMapColor = vec4( 0.0 );\n\t\t#endif\n\t\treturn PI * envMapColor.rgb * envMapIntensity;\n\t}\n\tfloat getSpecularMIPLevel( const in float roughness, const in int maxMIPLevel ) {\n\t\tfloat maxMIPLevelScalar = float( maxMIPLevel );\n\t\tfloat sigma = PI * roughness * roughness / ( 1.0 + roughness );\n\t\tfloat desiredMIPLevel = maxMIPLevelScalar + log2( sigma );\n\t\treturn clamp( desiredMIPLevel, 0.0, maxMIPLevelScalar );\n\t}\n\tvec3 getLightProbeIndirectRadiance( const in vec3 viewDir, const in vec3 normal, const in float roughness, const in int maxMIPLevel ) {\n\t\t#ifdef ENVMAP_MODE_REFLECTION\n\t\t\tvec3 reflectVec = reflect( -viewDir, normal );\n\t\t\treflectVec = normalize( mix( reflectVec, normal, roughness * roughness) );\n\t\t#else\n\t\t\tvec3 reflectVec = refract( -viewDir, normal, refractionRatio );\n\t\t#endif\n\t\treflectVec = inverseTransformDirection( reflectVec, viewMatrix );\n\t\tfloat specularMIPLevel = getSpecularMIPLevel( roughness, maxMIPLevel );\n\t\t#ifdef ENVMAP_TYPE_CUBE\n\t\t\tvec3 queryReflectVec = vec3( flipEnvMap * reflectVec.x, reflectVec.yz );\n\t\t\t#ifdef TEXTURE_LOD_EXT\n\t\t\t\tvec4 envMapColor = textureCubeLodEXT( envMap, queryReflectVec, specularMIPLevel );\n\t\t\t#else\n\t\t\t\tvec4 envMapColor = textureCube( envMap, queryReflectVec, specularMIPLevel );\n\t\t\t#endif\n\t\t\tenvMapColor.rgb = envMapTexelToLinear( envMapColor ).rgb;\n\t\t#elif defined( ENVMAP_TYPE_CUBE_UV )\n\t\t\tvec4 envMapColor = textureCubeUV( envMap, reflectVec, roughness );\n\t\t#endif\n\t\treturn envMapColor.rgb * envMapIntensity;\n\t}\n#endif";
 
-	var lights_toon_fragment = "ToonMaterial material;\nmaterial.diffuseColor = diffuseColor.rgb;";
+	var lights_toon_fragment = "ToonMaterial material;\nmaterial.diffuseColor = diffuseColor.rgb;\nmaterial.specularColor = specular;\nmaterial.specularShininess = shininess;\nmaterial.specularStrength = specularStrength;";
 
-	var lights_toon_pars_fragment = "varying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\nstruct ToonMaterial {\n\tvec3 diffuseColor;\n};\nvoid RE_Direct_Toon( const in IncidentLight directLight, const in GeometricContext geometry, const in ToonMaterial material, inout ReflectedLight reflectedLight ) {\n\tvec3 irradiance = getGradientIrradiance( geometry.normal, directLight.direction ) * directLight.color;\n\t#ifndef PHYSICALLY_CORRECT_LIGHTS\n\t\tirradiance *= PI;\n\t#endif\n\treflectedLight.directDiffuse += irradiance * BRDF_Diffuse_Lambert( material.diffuseColor );\n}\nvoid RE_IndirectDiffuse_Toon( const in vec3 irradiance, const in GeometricContext geometry, const in ToonMaterial material, inout ReflectedLight reflectedLight ) {\n\treflectedLight.indirectDiffuse += irradiance * BRDF_Diffuse_Lambert( material.diffuseColor );\n}\n#define RE_Direct\t\t\t\tRE_Direct_Toon\n#define RE_IndirectDiffuse\t\tRE_IndirectDiffuse_Toon\n#define Material_LightProbeLOD( material )\t(0)";
+	var lights_toon_pars_fragment = "varying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\nstruct ToonMaterial {\n\tvec3 diffuseColor;\n\tvec3\tspecularColor;\n\tfloat\tspecularShininess;\n\tfloat\tspecularStrength;\n};\nvoid RE_Direct_Toon( const in IncidentLight directLight, const in GeometricContext geometry, const in ToonMaterial material, inout ReflectedLight reflectedLight ) {\n\tvec3 irradiance = getGradientIrradiance( geometry.normal, directLight.direction ) * directLight.color;\n\t#ifndef PHYSICALLY_CORRECT_LIGHTS\n\t\tirradiance *= PI;\n\t#endif\n\treflectedLight.directDiffuse += irradiance * BRDF_Diffuse_Lambert( material.diffuseColor );\n\treflectedLight.directSpecular += irradiance * BRDF_Specular_BlinnPhong( directLight, geometry, material.specularColor, material.specularShininess ) * material.specularStrength;\n}\nvoid RE_IndirectDiffuse_Toon( const in vec3 irradiance, const in GeometricContext geometry, const in ToonMaterial material, inout ReflectedLight reflectedLight ) {\n\treflectedLight.indirectDiffuse += irradiance * BRDF_Diffuse_Lambert( material.diffuseColor );\n}\n#define RE_Direct\t\t\t\tRE_Direct_Toon\n#define RE_IndirectDiffuse\t\tRE_IndirectDiffuse_Toon\n#define Material_LightProbeLOD( material )\t(0)";
 
 	var lights_phong_fragment = "BlinnPhongMaterial material;\nmaterial.diffuseColor = diffuseColor.rgb;\nmaterial.specularColor = specular;\nmaterial.specularShininess = shininess;\nmaterial.specularStrength = specularStrength;";
 
@@ -10908,7 +10870,7 @@
 
 	var meshmatcap_vert = "#define MATCAP\nvarying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <color_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <color_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n\t#ifndef FLAT_SHADED\n\t\tvNormal = normalize( transformedNormal );\n\t#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\t#include <fog_vertex>\n\tvViewPosition = - mvPosition.xyz;\n}";
 
-	var meshtoon_frag = "#define TOON\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <gradientmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <lights_toon_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_toon_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + totalEmissiveRadiance;\n\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
+	var meshtoon_frag = "#define TOON\nuniform vec3 diffuse;\nuniform vec3 emissive;\nuniform vec3 specular;\nuniform float shininess;\nuniform float opacity;\n#include <common>\n#include <packing>\n#include <dithering_pars_fragment>\n#include <color_pars_fragment>\n#include <uv_pars_fragment>\n#include <uv2_pars_fragment>\n#include <map_pars_fragment>\n#include <alphamap_pars_fragment>\n#include <aomap_pars_fragment>\n#include <lightmap_pars_fragment>\n#include <emissivemap_pars_fragment>\n#include <gradientmap_pars_fragment>\n#include <fog_pars_fragment>\n#include <bsdfs>\n#include <lights_pars_begin>\n#include <lights_toon_pars_fragment>\n#include <shadowmap_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <specularmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\tReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );\n\tvec3 totalEmissiveRadiance = emissive;\n\t#include <logdepthbuf_fragment>\n\t#include <map_fragment>\n\t#include <color_fragment>\n\t#include <alphamap_fragment>\n\t#include <alphatest_fragment>\n\t#include <specularmap_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\t#include <emissivemap_fragment>\n\t#include <lights_toon_fragment>\n\t#include <lights_fragment_begin>\n\t#include <lights_fragment_maps>\n\t#include <lights_fragment_end>\n\t#include <aomap_fragment>\n\tvec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + reflectedLight.directSpecular + reflectedLight.indirectSpecular + totalEmissiveRadiance;\n\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n\t#include <premultiplied_alpha_fragment>\n\t#include <dithering_fragment>\n}";
 
 	var meshtoon_vert = "#define TOON\nvarying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n#ifndef FLAT_SHADED\n\tvNormal = normalize( transformedNormal );\n#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
 
@@ -11397,9 +11359,15 @@
 			fragmentShader: ShaderChunk.meshphysical_frag
 		},
 		toon: {
-			uniforms: mergeUniforms([UniformsLib.common, UniformsLib.aomap, UniformsLib.lightmap, UniformsLib.emissivemap, UniformsLib.bumpmap, UniformsLib.normalmap, UniformsLib.displacementmap, UniformsLib.gradientmap, UniformsLib.fog, UniformsLib.lights, {
+			uniforms: mergeUniforms([UniformsLib.common, UniformsLib.specularmap, UniformsLib.aomap, UniformsLib.lightmap, UniformsLib.emissivemap, UniformsLib.bumpmap, UniformsLib.normalmap, UniformsLib.displacementmap, UniformsLib.gradientmap, UniformsLib.fog, UniformsLib.lights, {
 				emissive: {
 					value: new Color(0x000000)
+				},
+				specular: {
+					value: new Color(0x111111)
+				},
+				shininess: {
+					value: 30
 				}
 			}]),
 			vertexShader: ShaderChunk.meshtoon_vert,
@@ -17955,6 +17923,9 @@
 		}
 
 		function refreshUniformsToon(uniforms, material) {
+			uniforms.specular.value.copy(material.specular);
+			uniforms.shininess.value = Math.max(material.shininess, 1e-4); // to prevent pow( 0.0, 0.0 )
+
 			if (material.gradientMap) {
 				uniforms.gradientMap.value = material.gradientMap;
 			}
@@ -24475,6 +24446,8 @@
 	/**
 	 * parameters = {
 	 *	color: <hex>,
+	 *	specular: <hex>,
+	 *	shininess: <float>,
 	 *
 	 *	map: new THREE.Texture( <Image> ),
 	 *	gradientMap: new THREE.Texture( <Image> ),
@@ -24500,6 +24473,8 @@
 	 *	displacementScale: <float>,
 	 *	displacementBias: <float>,
 	 *
+	 *	specularMap: new THREE.Texture( <Image> ),
+	 *
 	 *	alphaMap: new THREE.Texture( <Image> ),
 	 *
 	 *	wireframe: <boolean>,
@@ -24518,6 +24493,8 @@
 		};
 		this.type = 'MeshToonMaterial';
 		this.color = new Color(0xffffff);
+		this.specular = new Color(0x111111);
+		this.shininess = 30;
 		this.map = null;
 		this.gradientMap = null;
 		this.lightMap = null;
@@ -24535,6 +24512,7 @@
 		this.displacementMap = null;
 		this.displacementScale = 1;
 		this.displacementBias = 0;
+		this.specularMap = null;
 		this.alphaMap = null;
 		this.wireframe = false;
 		this.wireframeLinewidth = 1;
@@ -24553,6 +24531,8 @@
 	MeshToonMaterial.prototype.copy = function (source) {
 		Material.prototype.copy.call(this, source);
 		this.color.copy(source.color);
+		this.specular.copy(source.specular);
+		this.shininess = source.shininess;
 		this.map = source.map;
 		this.gradientMap = source.gradientMap;
 		this.lightMap = source.lightMap;
@@ -24570,6 +24550,7 @@
 		this.displacementMap = source.displacementMap;
 		this.displacementScale = source.displacementScale;
 		this.displacementBias = source.displacementBias;
+		this.specularMap = source.specularMap;
 		this.alphaMap = source.alphaMap;
 		this.wireframe = source.wireframe;
 		this.wireframeLinewidth = source.wireframeLinewidth;
@@ -34016,15 +33997,15 @@
 			// TODO: delete this comment?
 			const distanceGeometry = new THREE.IcosahedronBufferGeometry( 1, 2 );
 			const distanceMaterial = new THREE.MeshBasicMaterial( { color: hexColor, fog: false, wireframe: true, opacity: 0.1, transparent: true } );
-			this.lightSphere = new THREE.Mesh( bulbGeometry, bulbMaterial );
+				this.lightSphere = new THREE.Mesh( bulbGeometry, bulbMaterial );
 			this.lightDistance = new THREE.Mesh( distanceGeometry, distanceMaterial );
-			const d = light.distance;
-			if ( d === 0.0 ) {
-				this.lightDistance.visible = false;
-			} else {
-				this.lightDistance.scale.set( d, d, d );
-			}
-			this.add( this.lightDistance );
+				const d = light.distance;
+				if ( d === 0.0 ) {
+					this.lightDistance.visible = false;
+				} else {
+					this.lightDistance.scale.set( d, d, d );
+				}
+				this.add( this.lightDistance );
 			*/
 
 
@@ -34046,12 +34027,12 @@
 			}
 			/*
 			const d = this.light.distance;
-				if ( d === 0.0 ) {
-					this.lightDistance.visible = false;
-				} else {
-					this.lightDistance.visible = true;
+					if ( d === 0.0 ) {
+						this.lightDistance.visible = false;
+					} else {
+						this.lightDistance.visible = true;
 				this.lightDistance.scale.set( d, d, d );
-				}
+					}
 			*/
 
 		};
@@ -34553,7 +34534,7 @@
 			1/___0/|
 			| 6__|_7
 			2/___3/
-				0: max.x, max.y, max.z
+					0: max.x, max.y, max.z
 			1: min.x, max.y, max.z
 			2: min.x, min.y, max.z
 			3: max.x, min.y, max.z
@@ -35503,10 +35484,6 @@
 		);
 	}
 
-	function Face4(a, b, c, d, normal, color, materialIndex) {
-		console.warn('THREE.Face4 has been removed. A THREE.Face3 will be created instead.');
-		return new Face3(a, b, c, normal, color, materialIndex);
-	}
 	var LineStrip = 0;
 	var LinePieces = 1;
 	var NoColors = 0;
@@ -37003,8 +36980,6 @@
 	exports.EventDispatcher = EventDispatcher;
 	exports.ExtrudeBufferGeometry = ExtrudeGeometry;
 	exports.ExtrudeGeometry = ExtrudeGeometry;
-	exports.Face3 = Face3;
-	exports.Face4 = Face4;
 	exports.FaceColors = FaceColors;
 	exports.FileLoader = FileLoader;
 	exports.FlatShading = FlatShading;
