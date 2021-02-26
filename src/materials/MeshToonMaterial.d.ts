@@ -7,6 +7,8 @@ import { NormalMapTypes } from '../constants';
 export interface MeshToonMaterialParameters extends MaterialParameters {
 	/** geometry color in hexadecimal. Default is 0xffffff. */
 	color?: Color | string | number;
+	specular?: Color | string | number;
+	shininess?: number;
 	opacity?: number;
 	gradientMap?: Texture | null;
 	map?: Texture | null;
@@ -25,6 +27,7 @@ export interface MeshToonMaterialParameters extends MaterialParameters {
 	displacementMap?: Texture | null;
 	displacementScale?: number;
 	displacementBias?: number;
+	specularMap?: Texture | null;
 	alphaMap?: Texture | null;
 	wireframe?: boolean;
 	wireframeLinewidth?: number;
@@ -53,8 +56,8 @@ export class MeshToonMaterial extends Material {
 	 * @default new THREE.Color( 0xffffff )
 	 */
 	color: Color;
-
-	/**
+	specular: Color;
+	shininess: number;
 	 * @default null
 	 */
 	gradientMap: Texture | null;
@@ -138,7 +141,7 @@ export class MeshToonMaterial extends Material {
 	 * @default 0
 	 */
 	displacementBias: number;
-
+	specularMap: Texture | null;
 	/**
 	 * @default null
 	 */

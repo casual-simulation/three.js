@@ -103,6 +103,7 @@ const ShaderLib = {
 
 		uniforms: mergeUniforms( [
 			UniformsLib.common,
+			UniformsLib.specularmap,
 			UniformsLib.aomap,
 			UniformsLib.lightmap,
 			UniformsLib.emissivemap,
@@ -113,7 +114,9 @@ const ShaderLib = {
 			UniformsLib.fog,
 			UniformsLib.lights,
 			{
-				emissive: { value: new Color( 0x000000 ) }
+				emissive: { value: new Color( 0x000000 ) },
+				specular: { value: new Color( 0x111111 ) },
+				shininess: { value: 30 }
 			}
 		] ),
 

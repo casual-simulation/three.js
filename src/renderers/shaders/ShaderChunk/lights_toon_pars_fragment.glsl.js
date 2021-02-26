@@ -11,6 +11,9 @@ varying vec3 vViewPosition;
 struct ToonMaterial {
 
 	vec3 diffuseColor;
+	vec3	specularColor;
+	float	specularShininess;
+	float	specularStrength;
 
 };
 
@@ -25,6 +28,8 @@ void RE_Direct_Toon( const in IncidentLight directLight, const in GeometricConte
 	#endif
 
 	reflectedLight.directDiffuse += irradiance * BRDF_Diffuse_Lambert( material.diffuseColor );
+
+	reflectedLight.directSpecular += irradiance * BRDF_Specular_BlinnPhong( directLight, geometry, material.specularColor, material.specularShininess ) * material.specularStrength;
 
 }
 
