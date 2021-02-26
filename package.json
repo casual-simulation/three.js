@@ -1,7 +1,7 @@
 {
-  "name": "three",
-  "version": "0.125.2",
-  "description": "JavaScript 3D library",
+  "name": "@casual-simulation/three",
+  "version": "0.125.3",
+  "description": "JavaScript 3D library - Optimized for CasualOS",
   "main": "build/three.js",
   "module": "build/three.module.js",
   "types": "src/Three.d.ts",

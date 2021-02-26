@@ -1,4 +1,4 @@
-three.js
+three.js but optimized for [CasualOS](https://github.com/casual-simulation/casualos)
 ========
 
 [![NPM Package][npm]][npm-url]
