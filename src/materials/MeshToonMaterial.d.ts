@@ -58,8 +58,6 @@ export class MeshToonMaterial extends Material {
 	color: Color;
 	specular: Color;
 	shininess: number;
-	 * @default null
-	 */
 	gradientMap: Texture | null;
 
 	/**
